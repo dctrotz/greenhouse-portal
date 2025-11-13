@@ -1,0 +1,34 @@
+[Unit]
+Description=Greenhouse Portal Dashboard Service
+Documentation=https://github.com/yourusername/greenhouse-portal
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Change this to the user that should run the service (e.g., pi, www-data, or your username)
+User=dctrotz
+# Change this to the actual path where the project is deployed
+WorkingDirectory=/home/dctrotz/src/greenhouse-portal
+# Set environment variables
+Environment="NODE_ENV=production"
+Environment="DB_PATH=/home/dctrotz/local/greenhouse_pi_sensor/data/greenhouse_data.sqlite"
+Environment="IMAGE_BASE_DIR=/mnt/GreenhouseData/imgs"
+Environment="PORT=3000"
+# Path to Node.js executable (adjust if Node.js is installed elsewhere)
+ExecStart=/usr/bin/node /home/dctrotz/src/greenhouse-portal/server/dist/server.js
+# Restart policy
+Restart=always
+RestartSec=10
+# Standard output and error logging
+StandardOutput=journal
+StandardError=journal
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+# Resource limits (optional, adjust as needed)
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+
