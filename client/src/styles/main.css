@@ -154,6 +154,54 @@ header h1 {
   border-color: var(--accent-color);
 }
 
+.period-selector {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  background-color: white;
+}
+
+.period-selector:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(107, 166, 68, 0.1);
+}
+
+.charts-section {
+  margin-bottom: 30px;
+}
+
+.chart-container {
+  margin-bottom: 20px;
+}
+
+.chart-container .card {
+  min-height: 400px;
+  position: relative;
+}
+
+.chart-container canvas {
+  max-height: 400px;
+}
+
+.system-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.system-charts-grid .card {
+  min-height: 300px;
+  position: relative;
+}
+
+.system-charts-grid canvas {
+  max-height: 300px;
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));

@@ -7,7 +7,9 @@
     "bundle": "esbuild src/app.ts --bundle --format=esm --outfile=dist/app.js --target=es2020",
     "copy-assets": "mkdir -p dist/styles && cp src/styles/*.css dist/styles/ && cp index.html dist/"
   },
-  "dependencies": {},
+  "dependencies": {
+    "chart.js": "^4.4.1"
+  },
   "devDependencies": {
     "typescript": "^5.3.3",
     "esbuild": "^0.19.8"

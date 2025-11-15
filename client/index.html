@@ -31,10 +31,45 @@
       <div class="control-group">
         <div id="unit-selector"></div>
       </div>
+
+      <div class="control-group">
+        <label for="period-selector">Chart Period:</label>
+        <select id="period-selector" class="period-selector">
+          <option value="day">Day</option>
+          <option value="month">Month</option>
+          <option value="year">Year</option>
+        </select>
+      </div>
     </div>
 
     <div class="timestamp-display">
       <strong>Current Data Point:</strong> <span id="current-timestamp">Loading...</span>
+    </div>
+
+    <div class="charts-section">
+      <div class="chart-container">
+        <div class="card" id="temp-humidity-chart-container">
+          <h3>Temperature & Humidity</h3>
+          <p>Loading...</p>
+        </div>
+      </div>
+
+      <div class="system-charts-grid">
+        <div class="card" id="soc-temp-chart-container">
+          <h3>SOC Temperature</h3>
+          <p>Loading...</p>
+        </div>
+
+        <div class="card" id="wifi-chart-container">
+          <h3>WiFi Signal & Quality</h3>
+          <p>Loading...</p>
+        </div>
+
+        <div class="card" id="storage-chart-container">
+          <h3>Storage Used & Available</h3>
+          <p>Loading...</p>
+        </div>
+      </div>
     </div>
 
     <div class="dashboard-grid">

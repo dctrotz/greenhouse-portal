@@ -16,6 +16,10 @@ export class GreenhouseDatabase {
     this.db.pragma('journal_mode = WAL');
   }
 
+  private padZero(num: number, length: number = 2): string {
+    return String(num).padStart(length, '0');
+  }
+
   getLatestDataPoint(): DataPointWithData | null {
     const dataPoint = this.db
       .prepare('SELECT * FROM data_points ORDER BY timestamp DESC LIMIT 1')
@@ -94,6 +98,544 @@ export class GreenhouseDatabase {
       .all(startTimestamp, endTimestamp) as { timestamp: number }[];
 
     return timestamps.map((row) => row.timestamp);
+  }
+
+  // Chart data aggregation methods
+  getChartDataForDay(date: Date): {
+    timestamps: number[];
+    sensorData: {
+      sensor_id: number;
+      temperature_avg: number[];
+      temperature_min: number[];
+      temperature_max: number[];
+      humidity_avg: number[];
+      humidity_min: number[];
+      humidity_max: number[];
+    }[];
+    systemData: {
+      soc_temperature_avg: number[];
+      soc_temperature_min: number[];
+      soc_temperature_max: number[];
+      wlan0_link_quality_avg: number[];
+      wlan0_signal_level_avg: number[];
+      storage_used_avg: number[];
+      storage_avail_avg: number[];
+    } | null;
+  } {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const startTimestamp = Math.floor(startOfDay.getTime() / 1000);
+
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+    const endTimestamp = Math.floor(endOfDay.getTime() / 1000);
+
+    // Get all data points for the day
+    const dataPoints = this.db
+      .prepare(
+        'SELECT id, timestamp FROM data_points WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp'
+      )
+      .all(startTimestamp, endTimestamp) as { id: number; timestamp: number }[];
+
+    const timestamps = dataPoints.map((dp) => dp.timestamp);
+    const dataPointIds = dataPoints.map((dp) => dp.id);
+
+    // Aggregate sensor data by hour (for day view, group by hour)
+    const sensorIds = this.db
+      .prepare('SELECT DISTINCT sensor_id FROM sensor_data ORDER BY sensor_id')
+      .all() as { sensor_id: number }[];
+
+    const sensorData = sensorIds.map((s) => {
+      const tempAvg: number[] = [];
+      const tempMin: number[] = [];
+      const tempMax: number[] = [];
+      const humAvg: number[] = [];
+      const humMin: number[] = [];
+      const humMax: number[] = [];
+
+      // For each data point, get the sensor data
+      dataPointIds.forEach((dpId) => {
+        const sensor = this.db
+          .prepare('SELECT temperature, humidity FROM sensor_data WHERE data_point_id = ? AND sensor_id = ?')
+          .get(dpId, s.sensor_id) as { temperature: number; humidity: number } | undefined;
+
+        if (sensor) {
+          tempAvg.push(sensor.temperature);
+          tempMin.push(sensor.temperature);
+          tempMax.push(sensor.temperature);
+          humAvg.push(sensor.humidity);
+          humMin.push(sensor.humidity);
+          humMax.push(sensor.humidity);
+        } else {
+          tempAvg.push(NaN);
+          tempMin.push(NaN);
+          tempMax.push(NaN);
+          humAvg.push(NaN);
+          humMin.push(NaN);
+          humMax.push(NaN);
+        }
+      });
+
+      return {
+        sensor_id: s.sensor_id,
+        temperature_avg: tempAvg,
+        temperature_min: tempMin,
+        temperature_max: tempMax,
+        humidity_avg: humAvg,
+        humidity_min: humMin,
+        humidity_max: humMax,
+      };
+    });
+
+    // Aggregate system data
+    const socTempAvg: number[] = [];
+    const socTempMin: number[] = [];
+    const socTempMax: number[] = [];
+    const wlan0LinkQualityAvg: number[] = [];
+    const wlan0SignalLevelAvg: number[] = [];
+    const storageUsedAvg: number[] = [];
+    const storageAvailAvg: number[] = [];
+
+    dataPointIds.forEach((dpId) => {
+      const system = this.db
+        .prepare('SELECT * FROM system_data WHERE data_point_id = ?')
+        .get(dpId) as SystemData | undefined;
+
+      if (system) {
+        socTempAvg.push(system.soc_temperature);
+        socTempMin.push(system.soc_temperature);
+        socTempMax.push(system.soc_temperature);
+        wlan0LinkQualityAvg.push(system.wlan0_link_quality);
+        wlan0SignalLevelAvg.push(system.wlan0_signal_level);
+        storageUsedAvg.push(system.storage_used);
+        storageAvailAvg.push(system.storage_avail);
+      } else {
+        socTempAvg.push(NaN);
+        socTempMin.push(NaN);
+        socTempMax.push(NaN);
+        wlan0LinkQualityAvg.push(NaN);
+        wlan0SignalLevelAvg.push(NaN);
+        storageUsedAvg.push(NaN);
+        storageAvailAvg.push(NaN);
+      }
+    });
+
+    const systemData =
+      dataPointIds.length > 0
+        ? {
+            soc_temperature_avg: socTempAvg,
+            soc_temperature_min: socTempMin,
+            soc_temperature_max: socTempMax,
+            wlan0_link_quality_avg: wlan0LinkQualityAvg,
+            wlan0_signal_level_avg: wlan0SignalLevelAvg,
+            storage_used_avg: storageUsedAvg,
+            storage_avail_avg: storageAvailAvg,
+          }
+        : null;
+
+    return {
+      timestamps,
+      sensorData,
+      systemData,
+    };
+  }
+
+  getChartDataForMonth(year: number, month: number): {
+    dates: string[];
+    sensorData: {
+      sensor_id: number;
+      temperature_avg: number[];
+      temperature_min: number[];
+      temperature_max: number[];
+      humidity_avg: number[];
+      humidity_min: number[];
+      humidity_max: number[];
+    }[];
+    systemData: {
+      soc_temperature_avg: number[];
+      soc_temperature_min: number[];
+      soc_temperature_max: number[];
+      wlan0_link_quality_avg: number[];
+      wlan0_signal_level_avg: number[];
+      storage_used_avg: number[];
+      storage_avail_avg: number[];
+    } | null;
+  } {
+    // Get first and last day of month
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+    const startTimestamp = Math.floor(startDate.getTime() / 1000);
+    const endTimestamp = Math.floor(endDate.getTime() / 1000);
+
+    // Get all days in the month
+    const dates: string[] = [];
+    const daysInMonth = endDate.getDate();
+    for (let day = 1; day <= daysInMonth; day++) {
+      dates.push(`${year}-${this.padZero(month)}-${this.padZero(day)}`);
+    }
+
+    // Get sensor IDs
+    const sensorIds = this.db
+      .prepare('SELECT DISTINCT sensor_id FROM sensor_data ORDER BY sensor_id')
+      .all() as { sensor_id: number }[];
+
+    const sensorData = sensorIds.map((s) => {
+      const tempAvg: number[] = [];
+      const tempMin: number[] = [];
+      const tempMax: number[] = [];
+      const humAvg: number[] = [];
+      const humMin: number[] = [];
+      const humMax: number[] = [];
+
+      dates.forEach((dateStr) => {
+        const dayDate = new Date(dateStr + 'T00:00:00');
+        const dayStart = new Date(dayDate);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(dayDate);
+        dayEnd.setHours(23, 59, 59, 999);
+        const dayStartTs = Math.floor(dayStart.getTime() / 1000);
+        const dayEndTs = Math.floor(dayEnd.getTime() / 1000);
+
+        const dayDataPoints = this.db
+          .prepare('SELECT id FROM data_points WHERE timestamp >= ? AND timestamp <= ?')
+          .all(dayStartTs, dayEndTs) as { id: number }[];
+
+        if (dayDataPoints.length > 0) {
+          const temps: number[] = [];
+          const hums: number[] = [];
+
+          dayDataPoints.forEach((dp) => {
+            const sensor = this.db
+              .prepare('SELECT temperature, humidity FROM sensor_data WHERE data_point_id = ? AND sensor_id = ?')
+              .get(dp.id, s.sensor_id) as { temperature: number; humidity: number } | undefined;
+
+            if (sensor) {
+              temps.push(sensor.temperature);
+              hums.push(sensor.humidity);
+            }
+          });
+
+          if (temps.length > 0) {
+            tempAvg.push(temps.reduce((a, b) => a + b, 0) / temps.length);
+            tempMin.push(Math.min(...temps));
+            tempMax.push(Math.max(...temps));
+            humAvg.push(hums.reduce((a, b) => a + b, 0) / hums.length);
+            humMin.push(Math.min(...hums));
+            humMax.push(Math.max(...hums));
+          } else {
+            tempAvg.push(NaN);
+            tempMin.push(NaN);
+            tempMax.push(NaN);
+            humAvg.push(NaN);
+            humMin.push(NaN);
+            humMax.push(NaN);
+          }
+        } else {
+          tempAvg.push(NaN);
+          tempMin.push(NaN);
+          tempMax.push(NaN);
+          humAvg.push(NaN);
+          humMin.push(NaN);
+          humMax.push(NaN);
+        }
+      });
+
+      return {
+        sensor_id: s.sensor_id,
+        temperature_avg: tempAvg,
+        temperature_min: tempMin,
+        temperature_max: tempMax,
+        humidity_avg: humAvg,
+        humidity_min: humMin,
+        humidity_max: humMax,
+      };
+    });
+
+    // Aggregate system data by day
+    const socTempAvg: number[] = [];
+    const socTempMin: number[] = [];
+    const socTempMax: number[] = [];
+    const wlan0LinkQualityAvg: number[] = [];
+    const wlan0SignalLevelAvg: number[] = [];
+    const storageUsedAvg: number[] = [];
+    const storageAvailAvg: number[] = [];
+
+    dates.forEach((dateStr) => {
+      const dayDate = new Date(dateStr + 'T00:00:00');
+      const dayStart = new Date(dayDate);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayDate);
+      dayEnd.setHours(23, 59, 59, 999);
+      const dayStartTs = Math.floor(dayStart.getTime() / 1000);
+      const dayEndTs = Math.floor(dayEnd.getTime() / 1000);
+
+      const dayDataPoints = this.db
+        .prepare('SELECT id FROM data_points WHERE timestamp >= ? AND timestamp <= ?')
+        .all(dayStartTs, dayEndTs) as { id: number }[];
+
+      if (dayDataPoints.length > 0) {
+        const socTemps: number[] = [];
+        const linkQualities: number[] = [];
+        const signalLevels: number[] = [];
+        const storageUseds: number[] = [];
+        const storageAvails: number[] = [];
+
+        dayDataPoints.forEach((dp) => {
+          const system = this.db
+            .prepare('SELECT * FROM system_data WHERE data_point_id = ?')
+            .get(dp.id) as SystemData | undefined;
+
+          if (system) {
+            socTemps.push(system.soc_temperature);
+            linkQualities.push(system.wlan0_link_quality);
+            signalLevels.push(system.wlan0_signal_level);
+            storageUseds.push(system.storage_used);
+            storageAvails.push(system.storage_avail);
+          }
+        });
+
+        if (socTemps.length > 0) {
+          socTempAvg.push(socTemps.reduce((a, b) => a + b, 0) / socTemps.length);
+          socTempMin.push(Math.min(...socTemps));
+          socTempMax.push(Math.max(...socTemps));
+          wlan0LinkQualityAvg.push(linkQualities.reduce((a, b) => a + b, 0) / linkQualities.length);
+          wlan0SignalLevelAvg.push(signalLevels.reduce((a, b) => a + b, 0) / signalLevels.length);
+          storageUsedAvg.push(storageUseds.reduce((a, b) => a + b, 0) / storageUseds.length);
+          storageAvailAvg.push(storageAvails.reduce((a, b) => a + b, 0) / storageAvails.length);
+        } else {
+          socTempAvg.push(NaN);
+          socTempMin.push(NaN);
+          socTempMax.push(NaN);
+          wlan0LinkQualityAvg.push(NaN);
+          wlan0SignalLevelAvg.push(NaN);
+          storageUsedAvg.push(NaN);
+          storageAvailAvg.push(NaN);
+        }
+      } else {
+        socTempAvg.push(NaN);
+        socTempMin.push(NaN);
+        socTempMax.push(NaN);
+        wlan0LinkQualityAvg.push(NaN);
+        wlan0SignalLevelAvg.push(NaN);
+        storageUsedAvg.push(NaN);
+        storageAvailAvg.push(NaN);
+      }
+    });
+
+    const systemData =
+      dates.length > 0
+        ? {
+            soc_temperature_avg: socTempAvg,
+            soc_temperature_min: socTempMin,
+            soc_temperature_max: socTempMax,
+            wlan0_link_quality_avg: wlan0LinkQualityAvg,
+            wlan0_signal_level_avg: wlan0SignalLevelAvg,
+            storage_used_avg: storageUsedAvg,
+            storage_avail_avg: storageAvailAvg,
+          }
+        : null;
+
+    return {
+      dates,
+      sensorData,
+      systemData,
+    };
+  }
+
+  getChartDataForYear(year: number): {
+    months: string[];
+    sensorData: {
+      sensor_id: number;
+      temperature_avg: number[];
+      temperature_min: number[];
+      temperature_max: number[];
+      humidity_avg: number[];
+      humidity_min: number[];
+      humidity_max: number[];
+    }[];
+    systemData: {
+      soc_temperature_avg: number[];
+      soc_temperature_min: number[];
+      soc_temperature_max: number[];
+      wlan0_link_quality_avg: number[];
+      wlan0_signal_level_avg: number[];
+      storage_used_avg: number[];
+      storage_avail_avg: number[];
+    } | null;
+  } {
+    const months: string[] = [];
+    for (let month = 1; month <= 12; month++) {
+      months.push(`${year}-${this.padZero(month)}`);
+    }
+
+    // Get sensor IDs
+    const sensorIds = this.db
+      .prepare('SELECT DISTINCT sensor_id FROM sensor_data ORDER BY sensor_id')
+      .all() as { sensor_id: number }[];
+
+    const sensorData = sensorIds.map((s) => {
+      const tempAvg: number[] = [];
+      const tempMin: number[] = [];
+      const tempMax: number[] = [];
+      const humAvg: number[] = [];
+      const humMin: number[] = [];
+      const humMax: number[] = [];
+
+      months.forEach((monthStr) => {
+        const [yearStr, monthStr2] = monthStr.split('-');
+        const monthNum = parseInt(monthStr2, 10);
+        const yearNum = parseInt(yearStr, 10);
+
+        const startDate = new Date(yearNum, monthNum - 1, 1);
+        const endDate = new Date(yearNum, monthNum, 0, 23, 59, 59, 999);
+        const startTimestamp = Math.floor(startDate.getTime() / 1000);
+        const endTimestamp = Math.floor(endDate.getTime() / 1000);
+
+        const monthDataPoints = this.db
+          .prepare('SELECT id FROM data_points WHERE timestamp >= ? AND timestamp <= ?')
+          .all(startTimestamp, endTimestamp) as { id: number }[];
+
+        if (monthDataPoints.length > 0) {
+          const temps: number[] = [];
+          const hums: number[] = [];
+
+          monthDataPoints.forEach((dp) => {
+            const sensor = this.db
+              .prepare('SELECT temperature, humidity FROM sensor_data WHERE data_point_id = ? AND sensor_id = ?')
+              .get(dp.id, s.sensor_id) as { temperature: number; humidity: number } | undefined;
+
+            if (sensor) {
+              temps.push(sensor.temperature);
+              hums.push(sensor.humidity);
+            }
+          });
+
+          if (temps.length > 0) {
+            tempAvg.push(temps.reduce((a, b) => a + b, 0) / temps.length);
+            tempMin.push(Math.min(...temps));
+            tempMax.push(Math.max(...temps));
+            humAvg.push(hums.reduce((a, b) => a + b, 0) / hums.length);
+            humMin.push(Math.min(...hums));
+            humMax.push(Math.max(...hums));
+          } else {
+            tempAvg.push(NaN);
+            tempMin.push(NaN);
+            tempMax.push(NaN);
+            humAvg.push(NaN);
+            humMin.push(NaN);
+            humMax.push(NaN);
+          }
+        } else {
+          tempAvg.push(NaN);
+          tempMin.push(NaN);
+          tempMax.push(NaN);
+          humAvg.push(NaN);
+          humMin.push(NaN);
+          humMax.push(NaN);
+        }
+      });
+
+      return {
+        sensor_id: s.sensor_id,
+        temperature_avg: tempAvg,
+        temperature_min: tempMin,
+        temperature_max: tempMax,
+        humidity_avg: humAvg,
+        humidity_min: humMin,
+        humidity_max: humMax,
+      };
+    });
+
+    // Aggregate system data by month
+    const socTempAvg: number[] = [];
+    const socTempMin: number[] = [];
+    const socTempMax: number[] = [];
+    const wlan0LinkQualityAvg: number[] = [];
+    const wlan0SignalLevelAvg: number[] = [];
+    const storageUsedAvg: number[] = [];
+    const storageAvailAvg: number[] = [];
+
+    months.forEach((monthStr) => {
+      const [yearStr, monthStr2] = monthStr.split('-');
+      const monthNum = parseInt(monthStr2, 10);
+      const yearNum = parseInt(yearStr, 10);
+
+      const startDate = new Date(yearNum, monthNum - 1, 1);
+      const endDate = new Date(yearNum, monthNum, 0, 23, 59, 59, 999);
+      const startTimestamp = Math.floor(startDate.getTime() / 1000);
+      const endTimestamp = Math.floor(endDate.getTime() / 1000);
+
+      const monthDataPoints = this.db
+        .prepare('SELECT id FROM data_points WHERE timestamp >= ? AND timestamp <= ?')
+        .all(startTimestamp, endTimestamp) as { id: number }[];
+
+      if (monthDataPoints.length > 0) {
+        const socTemps: number[] = [];
+        const linkQualities: number[] = [];
+        const signalLevels: number[] = [];
+        const storageUseds: number[] = [];
+        const storageAvails: number[] = [];
+
+        monthDataPoints.forEach((dp) => {
+          const system = this.db
+            .prepare('SELECT * FROM system_data WHERE data_point_id = ?')
+            .get(dp.id) as SystemData | undefined;
+
+          if (system) {
+            socTemps.push(system.soc_temperature);
+            linkQualities.push(system.wlan0_link_quality);
+            signalLevels.push(system.wlan0_signal_level);
+            storageUseds.push(system.storage_used);
+            storageAvails.push(system.storage_avail);
+          }
+        });
+
+        if (socTemps.length > 0) {
+          socTempAvg.push(socTemps.reduce((a, b) => a + b, 0) / socTemps.length);
+          socTempMin.push(Math.min(...socTemps));
+          socTempMax.push(Math.max(...socTemps));
+          wlan0LinkQualityAvg.push(linkQualities.reduce((a, b) => a + b, 0) / linkQualities.length);
+          wlan0SignalLevelAvg.push(signalLevels.reduce((a, b) => a + b, 0) / signalLevels.length);
+          storageUsedAvg.push(storageUseds.reduce((a, b) => a + b, 0) / storageUseds.length);
+          storageAvailAvg.push(storageAvails.reduce((a, b) => a + b, 0) / storageAvails.length);
+        } else {
+          socTempAvg.push(NaN);
+          socTempMin.push(NaN);
+          socTempMax.push(NaN);
+          wlan0LinkQualityAvg.push(NaN);
+          wlan0SignalLevelAvg.push(NaN);
+          storageUsedAvg.push(NaN);
+          storageAvailAvg.push(NaN);
+        }
+      } else {
+        socTempAvg.push(NaN);
+        socTempMin.push(NaN);
+        socTempMax.push(NaN);
+        wlan0LinkQualityAvg.push(NaN);
+        wlan0SignalLevelAvg.push(NaN);
+        storageUsedAvg.push(NaN);
+        storageAvailAvg.push(NaN);
+      }
+    });
+
+    const systemData =
+      months.length > 0
+        ? {
+            soc_temperature_avg: socTempAvg,
+            soc_temperature_min: socTempMin,
+            soc_temperature_max: socTempMax,
+            wlan0_link_quality_avg: wlan0LinkQualityAvg,
+            wlan0_signal_level_avg: wlan0SignalLevelAvg,
+            storage_used_avg: storageUsedAvg,
+            storage_avail_avg: storageAvailAvg,
+          }
+        : null;
+
+    return {
+      months,
+      sensorData,
+      systemData,
+    };
   }
 
   close(): void {

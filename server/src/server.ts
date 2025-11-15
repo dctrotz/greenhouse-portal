@@ -6,6 +6,7 @@ import { GreenhouseDatabase } from './db/database';
 import { createDataRouter } from './routes/data';
 import { createImagesRouter } from './routes/images';
 import { createDatesRouter } from './routes/dates';
+import { createChartsRouter } from './routes/charts';
 
 // Load .env file - try project root first, then server directory
 // This works both in development (from src/) and production (from dist/)
@@ -32,6 +33,7 @@ app.use(express.json());
 app.use('/api/data', createDataRouter(db));
 app.use('/api/images', createImagesRouter(IMAGE_BASE_DIR));
 app.use('/api/dates', createDatesRouter(db));
+app.use('/api/charts', createChartsRouter(db));
 
 // Serve static files from client dist directory
 const clientDistPath = path.join(__dirname, '../../client/dist');

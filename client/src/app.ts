@@ -5,6 +5,8 @@ import { ImageDisplay } from './components/ImageDisplay';
 import { DatePicker } from './components/DatePicker';
 import { TimeSlider } from './components/TimeSlider';
 import { UnitSelector, TemperatureUnit } from './components/UnitSelector';
+import { ChartDisplay, TimePeriod } from './components/ChartDisplay';
+import { SystemCharts } from './components/SystemCharts';
 import { DataPointWithData } from './types';
 
 class GreenhouseDashboard {
@@ -14,12 +16,15 @@ class GreenhouseDashboard {
   private datePicker: DatePicker;
   private timeSlider: TimeSlider;
   private unitSelector: UnitSelector;
+  private chartDisplay: ChartDisplay;
+  private systemCharts: SystemCharts;
 
   private currentData: DataPointWithData | null = null;
   private selectedDate: Date = new Date();
   private selectedTimestamp: number | null = null;
   private autoRefreshInterval: number | null = null;
   private isViewingCurrent: boolean = true;
+  private currentPeriod: TimePeriod = 'day';
 
   constructor() {
     this.sensorDisplay = new SensorDisplay('sensor-display');
@@ -28,6 +33,12 @@ class GreenhouseDashboard {
     this.datePicker = new DatePicker('date-picker');
     this.timeSlider = new TimeSlider('time-slider');
     this.unitSelector = new UnitSelector('unit-selector');
+    this.chartDisplay = new ChartDisplay('temp-humidity-chart-container');
+    this.systemCharts = new SystemCharts(
+      'soc-temp-chart-container',
+      'wifi-chart-container',
+      'storage-chart-container'
+    );
 
     this.setupEventHandlers();
     this.initialize();
@@ -55,7 +66,20 @@ class GreenhouseDashboard {
       if (this.currentData) {
         this.renderData(this.currentData, unit);
       }
+      this.chartDisplay.setUnit(unit);
+      // Reload chart data with new unit
+      this.loadChartData();
     });
+
+    // Period selector handler
+    const periodSelector = document.getElementById('period-selector') as HTMLSelectElement;
+    if (periodSelector) {
+      periodSelector.addEventListener('change', (e) => {
+        const target = e.target as HTMLSelectElement;
+        this.currentPeriod = target.value as TimePeriod;
+        this.loadChartData();
+      });
+    }
   }
 
   private async initialize(): Promise<void> {
@@ -66,6 +90,10 @@ class GreenhouseDashboard {
 
     // Load current data
     await this.loadCurrentData();
+    
+    // Load chart data
+    await this.loadChartData();
+    
     this.startAutoRefresh();
   }
 
@@ -84,6 +112,9 @@ class GreenhouseDashboard {
       await this.loadDataPointsForDate(dataDate);
 
       this.renderData(data, this.unitSelector.getUnit());
+      
+      // Reload chart data if date changed
+      await this.loadChartData();
     } catch (error) {
       console.error('Error loading current data:', error);
       this.showError('Failed to load current data');
@@ -108,6 +139,9 @@ class GreenhouseDashboard {
         this.selectedTimestamp = latestTimestamp;
         await this.loadDataForTimestamp(latestTimestamp);
       }
+      
+      // Reload chart data when date changes
+      await this.loadChartData();
     } catch (error) {
       console.error('Error loading data points for date:', error);
       this.timeSlider.setTimestamps([]);
@@ -163,6 +197,37 @@ class GreenhouseDashboard {
     if (this.autoRefreshInterval) {
       clearInterval(this.autoRefreshInterval);
       this.autoRefreshInterval = null;
+    }
+  }
+
+  private async loadChartData(): Promise<void> {
+    try {
+      let chartData: any;
+      const date = this.selectedDate;
+      const period = this.currentPeriod;
+
+      if (period === 'day') {
+        chartData = await apiClient.getChartDataForDay(date);
+        await this.chartDisplay.render(chartData, 'day', date, this.unitSelector.getUnit());
+        await this.systemCharts.render(chartData, 'day');
+      } else if (period === 'month') {
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        chartData = await apiClient.getChartDataForMonth(year, month);
+        await this.chartDisplay.render(chartData, 'month', date, this.unitSelector.getUnit());
+        await this.systemCharts.render(chartData, 'month');
+      } else if (period === 'year') {
+        const year = date.getFullYear();
+        chartData = await apiClient.getChartDataForYear(year);
+        await this.chartDisplay.render(chartData, 'year', date, this.unitSelector.getUnit());
+        await this.systemCharts.render(chartData, 'year');
+      }
+    } catch (error) {
+      console.error('Error loading chart data:', error);
+      const chartContainer = document.getElementById('temp-humidity-chart-container');
+      if (chartContainer) {
+        chartContainer.innerHTML = '<p>Failed to load chart data</p>';
+      }
     }
   }
 

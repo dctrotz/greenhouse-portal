@@ -38,6 +38,31 @@ export class ApiClient {
     const data: DataPointResponse = await response.json();
     return data.timestamps;
   }
+
+  async getChartDataForDay(date: Date): Promise<any> {
+    const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+    const response = await fetch(`${API_BASE}/charts/day/${dateStr}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch chart data: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
+  async getChartDataForMonth(year: number, month: number): Promise<any> {
+    const response = await fetch(`${API_BASE}/charts/month/${year}/${month}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch chart data: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
+  async getChartDataForYear(year: number): Promise<any> {
+    const response = await fetch(`${API_BASE}/charts/year/${year}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch chart data: ${response.statusText}`);
+    }
+    return response.json();
+  }
 }
 
 export const apiClient = new ApiClient();
