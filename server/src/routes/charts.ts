@@ -7,9 +7,10 @@ export function createChartsRouter(db: GreenhouseDatabase): Router {
   router.get('/day/:date', (req: Request, res: Response) => {
     try {
       // Date format: YYYY-MM-DD
-      // Parse as UTC to avoid timezone issues - the date string represents a calendar date, not a moment in time
+      // Parse as LOCAL time (no Z suffix) - the date string represents a calendar date in the server's local timezone
       const dateStr = req.params.date;
-      const date = new Date(dateStr + 'T00:00:00Z');
+      // Parse as local date at midnight (no Z = local time)
+      const date = new Date(dateStr + 'T00:00:00');
       
       if (isNaN(date.getTime())) {
         return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });

@@ -83,14 +83,19 @@ export class GreenhouseDatabase {
   }
 
   getDataPointsForDate(date: Date): number[] {
-    // Use UTC methods to ensure consistent date handling across timezones
-    // The date parameter is already in UTC (parsed from YYYY-MM-DD string)
-    const startOfDay = new Date(date);
-    startOfDay.setUTCHours(0, 0, 0, 0);
+    // The date parameter represents a calendar date in the server's local timezone
+    // We need to find the start and end of that day in local time, then convert to UTC timestamps
+    // Extract local date components to ensure we're working with the correct calendar date
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
+    
+    // Create start of day at midnight in local timezone
+    const startOfDay = new Date(year, month, day, 0, 0, 0, 0);
     const startTimestamp = Math.floor(startOfDay.getTime() / 1000);
 
-    const endOfDay = new Date(date);
-    endOfDay.setUTCHours(23, 59, 59, 999);
+    // Create end of day at 23:59:59.999 in local timezone
+    const endOfDay = new Date(year, month, day, 23, 59, 59, 999);
     const endTimestamp = Math.floor(endOfDay.getTime() / 1000);
 
     const timestamps = this.db
@@ -124,14 +129,18 @@ export class GreenhouseDatabase {
       storage_avail_avg: number[];
     } | null;
   } {
-    // Use UTC methods to ensure consistent date handling across timezones
-    // The date parameter is already in UTC (parsed from YYYY-MM-DD string)
-    const startOfDay = new Date(date);
-    startOfDay.setUTCHours(0, 0, 0, 0);
+    // The date parameter represents a calendar date in the server's local timezone
+    // Extract local date components to ensure we're working with the correct calendar date
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
+    
+    // Create start of day at midnight in local timezone
+    const startOfDay = new Date(year, month, day, 0, 0, 0, 0);
     const startTimestamp = Math.floor(startOfDay.getTime() / 1000);
 
-    const endOfDay = new Date(date);
-    endOfDay.setUTCHours(23, 59, 59, 999);
+    // Create end of day at 23:59:59.999 in local timezone
+    const endOfDay = new Date(year, month, day, 23, 59, 59, 999);
     const endTimestamp = Math.floor(endOfDay.getTime() / 1000);
 
     // Get all data points for the day
@@ -295,12 +304,16 @@ export class GreenhouseDatabase {
       const humMax: number[] = [];
 
       dates.forEach((dateStr) => {
-        // Parse as UTC to avoid timezone issues
-        const dayDate = new Date(dateStr + 'T00:00:00Z');
-        const dayStart = new Date(dayDate);
-        dayStart.setUTCHours(0, 0, 0, 0);
-        const dayEnd = new Date(dayDate);
-        dayEnd.setUTCHours(23, 59, 59, 999);
+        // Parse as local date (no Z = local time)
+        // The dateStr is in YYYY-MM-DD format representing a calendar date
+        const dayDate = new Date(dateStr + 'T00:00:00');
+        // Extract local date components
+        const year = dayDate.getFullYear();
+        const month = dayDate.getMonth();
+        const day = dayDate.getDate();
+        // Create start and end of day in local timezone
+        const dayStart = new Date(year, month, day, 0, 0, 0, 0);
+        const dayEnd = new Date(year, month, day, 23, 59, 59, 999);
         const dayStartTs = Math.floor(dayStart.getTime() / 1000);
         const dayEndTs = Math.floor(dayEnd.getTime() / 1000);
 
@@ -369,12 +382,16 @@ export class GreenhouseDatabase {
     const storageAvailAvg: number[] = [];
 
     dates.forEach((dateStr) => {
-      // Parse as UTC to avoid timezone issues
-      const dayDate = new Date(dateStr + 'T00:00:00Z');
-      const dayStart = new Date(dayDate);
-      dayStart.setUTCHours(0, 0, 0, 0);
-      const dayEnd = new Date(dayDate);
-      dayEnd.setUTCHours(23, 59, 59, 999);
+      // Parse as local date (no Z = local time)
+      // The dateStr is in YYYY-MM-DD format representing a calendar date
+      const dayDate = new Date(dateStr + 'T00:00:00');
+      // Extract local date components
+      const year = dayDate.getFullYear();
+      const month = dayDate.getMonth();
+      const day = dayDate.getDate();
+      // Create start and end of day in local timezone
+      const dayStart = new Date(year, month, day, 0, 0, 0, 0);
+      const dayEnd = new Date(year, month, day, 23, 59, 59, 999);
       const dayStartTs = Math.floor(dayStart.getTime() / 1000);
       const dayEndTs = Math.floor(dayEnd.getTime() / 1000);
 
