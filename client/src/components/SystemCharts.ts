@@ -322,12 +322,12 @@ export class SystemCharts {
   }
 
   private renderStorageChart(labels: string[], systemData: any): void {
-    // Convert bytes to GB
+    // Convert kilobytes to GB (storage values are stored as kilobytes in the database)
     const storageUsed = systemData.storage_used_avg.map((v: number) => 
-      isNaN(v) ? null : v / (1024 * 1024 * 1024)
+      isNaN(v) ? null : v / (1024 * 1024)
     );
     const storageAvail = systemData.storage_avail_avg.map((v: number) => 
-      isNaN(v) ? null : v / (1024 * 1024 * 1024)
+      isNaN(v) ? null : v / (1024 * 1024)
     );
 
     this.storageContainer.innerHTML = '<canvas id="storage-chart"></canvas>';

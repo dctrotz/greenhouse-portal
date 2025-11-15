@@ -12,8 +12,9 @@ export class SystemDisplay {
     this.container = container;
   }
 
-  formatBytes(bytes: number): string {
-    const gb = bytes / (1024 * 1024 * 1024);
+  formatBytes(kilobytes: number): string {
+    // Storage values are stored as kilobytes in the database
+    const gb = kilobytes / (1024 * 1024);
     return `${gb.toFixed(2)} GB`;
   }
 
