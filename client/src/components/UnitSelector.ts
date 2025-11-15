@@ -17,15 +17,15 @@ export class UnitSelector {
 
     const celsiusBtn = document.createElement('button');
     celsiusBtn.textContent = '°C';
-    celsiusBtn.className = 'unit-btn active';
+    celsiusBtn.className = 'unit-btn';
     celsiusBtn.dataset.unit = 'C';
 
     const fahrenheitBtn = document.createElement('button');
     fahrenheitBtn.textContent = '°F';
-    fahrenheitBtn.className = 'unit-btn';
+    fahrenheitBtn.className = 'unit-btn active';
     fahrenheitBtn.dataset.unit = 'F';
 
-    const handleClick = (e: Event) => {
+    const handleClick = (e: Event) => 
       const target = e.target as HTMLButtonElement;
       const newUnit = target.dataset.unit as TemperatureUnit;
       if (newUnit && newUnit !== this.unit) {
