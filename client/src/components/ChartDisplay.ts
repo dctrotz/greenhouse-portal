@@ -61,14 +61,19 @@ export class ChartDisplay {
       });
     }
 
+    // Store original temperature data in Celsius for tooltip formatting
+    const tempAvgRaw = sensorData.temperature_avg;
+    const tempMinRaw = sensorData.temperature_min;
+    const tempMaxRaw = sensorData.temperature_max;
+
     // Prepare temperature data
-    const tempAvg = sensorData.temperature_avg.map((t: number) => 
+    const tempAvg = tempAvgRaw.map((t: number) => 
       isNaN(t) ? null : this.unit === 'F' ? (t * 9/5 + 32) : t
     );
-    const tempMin = sensorData.temperature_min.map((t: number) => 
+    const tempMin = tempMinRaw.map((t: number) => 
       isNaN(t) ? null : this.unit === 'F' ? (t * 9/5 + 32) : t
     );
-    const tempMax = sensorData.temperature_max.map((t: number) => 
+    const tempMax = tempMaxRaw.map((t: number) => 
       isNaN(t) ? null : this.unit === 'F' ? (t * 9/5 + 32) : t
     );
 
@@ -184,7 +189,26 @@ export class ChartDisplay {
                 }
                 if (context.parsed.y !== null) {
                   if (label.includes('Temp')) {
-                    label += formatTemperature(context.parsed.y, this.unit);
+                    // Get the raw Celsius value from the original data
+                    const dataIndex = context.dataIndex;
+                    let rawTemp: number | null = null;
+                    
+                    if (context.datasetIndex === 0) {
+                      // Temp Avg
+                      rawTemp = tempAvgRaw[dataIndex];
+                    } else if (context.datasetIndex === 1) {
+                      // Temp Min
+                      rawTemp = tempMinRaw[dataIndex];
+                    } else if (context.datasetIndex === 2) {
+                      // Temp Max
+                      rawTemp = tempMaxRaw[dataIndex];
+                    }
+                    
+                    if (rawTemp !== null && !isNaN(rawTemp)) {
+                      label += formatTemperature(rawTemp, this.unit);
+                    } else {
+                      label += 'N/A';
+                    }
                   } else {
                     label += context.parsed.y.toFixed(1) + '%';
                   }
