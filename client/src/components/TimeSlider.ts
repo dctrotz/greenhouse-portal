@@ -4,6 +4,7 @@ export class TimeSlider {
   private timeDisplay: HTMLElement;
   private timestamps: number[] = [];
   private onChangeCallback: ((timestamp: number) => void) | null = null;
+  private debounceTimer: number | null = null;
 
   constructor(containerId: string) {
     const container = document.getElementById(containerId);
@@ -21,14 +22,39 @@ export class TimeSlider {
     this.slider.className = 'time-slider';
     this.container.appendChild(this.slider);
 
+    // Update display immediately on input (for visual feedback)
     this.slider.addEventListener('input', () => {
       this.updateDisplay();
+    });
+
+    // Only trigger callback when user stops sliding (on change or after debounce)
+    this.slider.addEventListener('change', () => {
+      this.triggerCallback();
+    });
+
+    // Also handle mouseup/touchend for better UX when dragging
+    this.slider.addEventListener('mouseup', () => {
+      this.triggerCallback();
+    });
+    this.slider.addEventListener('touchend', () => {
+      this.triggerCallback();
+    });
+  }
+
+  private triggerCallback(): void {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+    }
+    
+    // Small debounce to ensure we only fire once when user stops
+    this.debounceTimer = window.setTimeout(() => {
       if (this.onChangeCallback && this.timestamps.length > 0) {
         const index = parseInt(this.slider.value, 10);
         const timestamp = this.timestamps[index];
         this.onChangeCallback(timestamp);
       }
-    });
+      this.debounceTimer = null;
+    }, 100);
   }
 
   setTimestamps(timestamps: number[]): void {
@@ -42,10 +68,16 @@ export class TimeSlider {
       return;
     }
 
+    // Always enable the slider when there are timestamps
     this.slider.disabled = false;
     this.slider.min = '0';
     this.slider.max = String(timestamps.length - 1);
-    this.slider.value = String(timestamps.length - 1); // Default to latest
+    
+    // Only update value if it's out of bounds or if we're setting initial timestamps
+    const currentIndex = parseInt(this.slider.value, 10);
+    if (isNaN(currentIndex) || currentIndex >= timestamps.length || currentIndex < 0) {
+      this.slider.value = String(timestamps.length - 1); // Default to latest
+    }
     this.updateDisplay();
   }
 
