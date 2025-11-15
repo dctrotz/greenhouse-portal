@@ -84,17 +84,17 @@ class GreenhouseDashboard {
   }
 
   private async initialize(): Promise<void> {
-    // Set date picker to today
+    // Set max date to today (but don't set the actual date yet - let loadCurrentData do it)
     const today = new Date();
-    // Ensure selectedDate is initialized with today's date (normalized to midnight local time)
-    this.selectedDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    this.datePicker.setDate(today);
     this.datePicker.setMaxDate(today);
+    
+    // Initialize selectedDate to today (will be updated by loadCurrentData)
+    this.selectedDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-    // Load current data
+    // Load current data - this will set the date picker based on the actual data timestamp
     await this.loadCurrentData();
     
-    // Load chart data
+    // Load chart data after the date is properly set
     await this.loadChartData();
     
     this.startAutoRefresh();
@@ -110,25 +110,53 @@ class GreenhouseDashboard {
       // Create a Date object from the timestamp (converts UTC to local time)
       const dataDateFromTimestamp = new Date(data.dataPoint.timestamp * 1000);
       
+      // Debug: Log the timestamp conversion
+      console.log('loadCurrentData - timestamp conversion:', {
+        timestamp: data.dataPoint.timestamp,
+        timestampAsDate: new Date(data.dataPoint.timestamp * 1000).toISOString(),
+        localTime: dataDateFromTimestamp.toLocaleString(),
+        utcTime: dataDateFromTimestamp.toUTCString(),
+        getDate: dataDateFromTimestamp.getDate(),
+        getUTCDate: dataDateFromTimestamp.getUTCDate(),
+        getFullYear: dataDateFromTimestamp.getFullYear(),
+        getMonth: dataDateFromTimestamp.getMonth(),
+        timezoneOffset: dataDateFromTimestamp.getTimezoneOffset()
+      });
+      
       // Extract local date components to create a date representing the local calendar date
       // This ensures we show the date that the timestamp represents in the user's local timezone
-      const localDate = new Date(
-        dataDateFromTimestamp.getFullYear(),
-        dataDateFromTimestamp.getMonth(),
-        dataDateFromTimestamp.getDate()
-      );
+      // Use the date picker's getDate() method pattern to ensure consistency
+      const year = dataDateFromTimestamp.getFullYear();
+      const month = dataDateFromTimestamp.getMonth();
+      const day = dataDateFromTimestamp.getDate();
       
-      // Update both the date picker and selectedDate to ensure they're in sync
-      this.datePicker.setDate(localDate);
+      // Create a local date at midnight to represent just the calendar date
+      const localDate = new Date(year, month, day);
+      
+      console.log('loadCurrentData - date extraction:', {
+        year, month, day,
+        localDate: localDate.toLocaleString(),
+        dateString: `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      });
+      
+      // Update selectedDate first, then the date picker
+      // This ensures selectedDate is always in sync
       this.selectedDate = localDate;
+      this.datePicker.setDate(localDate);
+      
+      // Verify what was actually set
+      console.log('loadCurrentData - after setting date picker:', {
+        selectedDate: this.selectedDate.toLocaleString(),
+        datePickerValue: this.datePicker.getDate().toLocaleString()
+      });
 
       // Load timestamps for the day using the local date
       await this.loadDataPointsForDate(localDate);
 
       this.renderData(data, this.unitSelector.getUnit());
       
-      // Reload chart data if date changed
-      await this.loadChartData();
+      // Note: Don't reload chart data here - it will be loaded after initialization
+      // or when the date picker changes
     } catch (error) {
       console.error('Error loading current data:', error);
       this.showError('Failed to load current data');

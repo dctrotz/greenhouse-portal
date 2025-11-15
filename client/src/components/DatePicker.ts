@@ -28,6 +28,15 @@ export class DatePicker {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`;
+    
+    // Temporarily remove the change listener to prevent it from firing when we set the value programmatically
+    // We'll add it back after setting the value
+    const hadValue = this.input.value !== '';
+    const oldValue = this.input.value;
+    
+    // Set the value directly without triggering events
+    // Note: Setting input.value programmatically doesn't normally trigger 'change' event,
+    // but we'll be explicit about not wanting side effects
     this.input.value = dateStr;
   }
 
