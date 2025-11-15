@@ -25,7 +25,7 @@ export class UnitSelector {
     fahrenheitBtn.className = 'unit-btn active';
     fahrenheitBtn.dataset.unit = 'F';
 
-    const handleClick = (e: Event) => 
+    const handleClick = (e: Event) => {
       const target = e.target as HTMLButtonElement;
       const newUnit = target.dataset.unit as TemperatureUnit;
       if (newUnit && newUnit !== this.unit) {
