@@ -23,7 +23,11 @@ export class DatePicker {
   }
 
   setDate(date: Date): void {
-    const dateStr = date.toISOString().split('T')[0];
+    // Use local date components to avoid timezone issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
     this.input.value = dateStr;
   }
 
@@ -31,15 +35,26 @@ export class DatePicker {
     if (!this.input.value) {
       return new Date();
     }
+    // Parse as local date (date input already gives us local date)
     return new Date(this.input.value + 'T00:00:00');
   }
 
   setMaxDate(date: Date): void {
-    this.input.max = date.toISOString().split('T')[0];
+    // Use local date components to avoid timezone issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    this.input.max = dateStr;
   }
 
   setMinDate(date: Date): void {
-    this.input.min = date.toISOString().split('T')[0];
+    // Use local date components to avoid timezone issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    this.input.min = dateStr;
   }
 
   onChange(callback: (date: Date) => void): void {

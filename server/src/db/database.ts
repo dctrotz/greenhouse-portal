@@ -83,12 +83,14 @@ export class GreenhouseDatabase {
   }
 
   getDataPointsForDate(date: Date): number[] {
+    // Use UTC methods to ensure consistent date handling across timezones
+    // The date parameter is already in UTC (parsed from YYYY-MM-DD string)
     const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
+    startOfDay.setUTCHours(0, 0, 0, 0);
     const startTimestamp = Math.floor(startOfDay.getTime() / 1000);
 
     const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    endOfDay.setUTCHours(23, 59, 59, 999);
     const endTimestamp = Math.floor(endOfDay.getTime() / 1000);
 
     const timestamps = this.db
@@ -122,12 +124,14 @@ export class GreenhouseDatabase {
       storage_avail_avg: number[];
     } | null;
   } {
+    // Use UTC methods to ensure consistent date handling across timezones
+    // The date parameter is already in UTC (parsed from YYYY-MM-DD string)
     const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
+    startOfDay.setUTCHours(0, 0, 0, 0);
     const startTimestamp = Math.floor(startOfDay.getTime() / 1000);
 
     const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    endOfDay.setUTCHours(23, 59, 59, 999);
     const endTimestamp = Math.floor(endOfDay.getTime() / 1000);
 
     // Get all data points for the day
@@ -261,15 +265,18 @@ export class GreenhouseDatabase {
       storage_avail_avg: number[];
     } | null;
   } {
-    // Get first and last day of month
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+    // Get first and last day of month in UTC
+    // month is 1-indexed (1-12), but Date.UTC expects 0-indexed (0-11)
+    // To get the last day of the month, we need month + 1 in 0-indexed terms
+    const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+    const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
     const startTimestamp = Math.floor(startDate.getTime() / 1000);
     const endTimestamp = Math.floor(endDate.getTime() / 1000);
 
     // Get all days in the month
+    // Calculate days in month using UTC to ensure consistency
     const dates: string[] = [];
-    const daysInMonth = endDate.getDate();
+    const daysInMonth = endDate.getUTCDate();
     for (let day = 1; day <= daysInMonth; day++) {
       dates.push(`${year}-${this.padZero(month)}-${this.padZero(day)}`);
     }
@@ -288,11 +295,12 @@ export class GreenhouseDatabase {
       const humMax: number[] = [];
 
       dates.forEach((dateStr) => {
-        const dayDate = new Date(dateStr + 'T00:00:00');
+        // Parse as UTC to avoid timezone issues
+        const dayDate = new Date(dateStr + 'T00:00:00Z');
         const dayStart = new Date(dayDate);
-        dayStart.setHours(0, 0, 0, 0);
+        dayStart.setUTCHours(0, 0, 0, 0);
         const dayEnd = new Date(dayDate);
-        dayEnd.setHours(23, 59, 59, 999);
+        dayEnd.setUTCHours(23, 59, 59, 999);
         const dayStartTs = Math.floor(dayStart.getTime() / 1000);
         const dayEndTs = Math.floor(dayEnd.getTime() / 1000);
 
@@ -361,11 +369,12 @@ export class GreenhouseDatabase {
     const storageAvailAvg: number[] = [];
 
     dates.forEach((dateStr) => {
-      const dayDate = new Date(dateStr + 'T00:00:00');
+      // Parse as UTC to avoid timezone issues
+      const dayDate = new Date(dateStr + 'T00:00:00Z');
       const dayStart = new Date(dayDate);
-      dayStart.setHours(0, 0, 0, 0);
+      dayStart.setUTCHours(0, 0, 0, 0);
       const dayEnd = new Date(dayDate);
-      dayEnd.setHours(23, 59, 59, 999);
+      dayEnd.setUTCHours(23, 59, 59, 999);
       const dayStartTs = Math.floor(dayStart.getTime() / 1000);
       const dayEndTs = Math.floor(dayEnd.getTime() / 1000);
 
@@ -486,8 +495,9 @@ export class GreenhouseDatabase {
         const monthNum = parseInt(monthStr2, 10);
         const yearNum = parseInt(yearStr, 10);
 
-        const startDate = new Date(yearNum, monthNum - 1, 1);
-        const endDate = new Date(yearNum, monthNum, 0, 23, 59, 59, 999);
+        // Use UTC to avoid timezone issues
+        const startDate = new Date(Date.UTC(yearNum, monthNum - 1, 1, 0, 0, 0, 0));
+        const endDate = new Date(Date.UTC(yearNum, monthNum, 0, 23, 59, 59, 999));
         const startTimestamp = Math.floor(startDate.getTime() / 1000);
         const endTimestamp = Math.floor(endDate.getTime() / 1000);
 
